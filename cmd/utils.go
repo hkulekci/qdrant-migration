@@ -16,16 +16,39 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/qdrant/go-client/qdrant"
+
+	"github.com/qdrant/migration/pkg/commons"
 )
 
 const (
 	HTTPS = "https"
 
-	DefaultHTTPPort  = 80
-	DefaultHTTPSPort = 443
+	DefaultHTTPPort      = 80
+	DefaultHTTPSPort     = 443
+	DefaultQdrantRESTPort = 6333
 )
 
-func connectToQdrant(globals *Globals, host string, port int, apiKey string, useTLS bool, maxMessageSize int) (*qdrant.Client, error) {
+func connectToQdrant(globals *Globals, host string, port int, apiKey string, useTLS bool, maxMessageSize int, useREST ...bool) (commons.QdrantClient, error) {
+	rest := len(useREST) > 0 && useREST[0]
+
+	// Auto-detect REST when connecting to the well-known Qdrant REST port (6333).
+	if !rest && port == DefaultQdrantRESTPort {
+		pterm.Info.Printfln("Port %d detected as Qdrant REST port, using REST API automatically.", port)
+		rest = true
+	}
+
+	if rest {
+		scheme := "http"
+		if useTLS {
+			scheme = "https"
+		}
+		baseURL := fmt.Sprintf("%s://%s:%d", scheme, host, port)
+		return newQdrantRESTClient(baseURL, apiKey), nil
+	}
+	return connectToQdrantGRPC(globals, host, port, apiKey, useTLS, maxMessageSize)
+}
+
+func connectToQdrantGRPC(globals *Globals, host string, port int, apiKey string, useTLS bool, maxMessageSize int) (commons.QdrantClient, error) {
 	debugLogger := logging.LoggerFunc(func(ctx context.Context, lvl logging.Level, msg string, fields ...any) {
 		pterm.Debug.Printf(msg, fields...)
 	})
@@ -78,7 +101,7 @@ func connectToQdrant(globals *Globals, host string, port int, apiKey string, use
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
 
-	return client, nil
+	return &qdrantGRPCClient{Client: client}, nil
 }
 
 func getPort(u *url.URL) (int, error) {
@@ -194,7 +217,7 @@ func isRetryableError(err error) bool {
 
 // upsertWithRetry performs an upsert operation with retry logic for transient errors.
 // It handles Qdrant's transient consistency errors and HTTP/2 stream resets.
-func upsertWithRetry(ctx context.Context, client *qdrant.Client, req *qdrant.UpsertPoints) error {
+func upsertWithRetry(ctx context.Context, client commons.QdrantClient, req *qdrant.UpsertPoints) error {
 	var err error
 	for attempt := 0; attempt < maxUpsertRetries; attempt++ {
 		_, err = client.Upsert(ctx, req)

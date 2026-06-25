@@ -4,6 +4,7 @@ type QdrantConfig struct {
 	Collection string `help:"Collection name" required:"true"`
 	Url        string `help:"Qdrant gRPC URL" default:"http://localhost:6334"`
 	APIKey     string `help:"API key for authentication"`
+	UseREST    bool   `help:"Use REST API instead of gRPC" default:"false" name:"use-rest"`
 }
 
 type MigrationConfig struct {

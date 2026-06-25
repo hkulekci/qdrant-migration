@@ -60,7 +60,7 @@ func (r *MigrateFromWeaviateCmd) Run(globals *Globals) error {
 		return fmt.Errorf("failed to connect to Weaviate source: %w", err)
 	}
 
-	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0)
+	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0, r.Qdrant.UseREST)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Qdrant target: %w", err)
 	}
@@ -225,7 +225,7 @@ func (r *MigrateFromWeaviateCmd) countWeaviateObjects(ctx context.Context, clien
 	return uint64(count), nil
 }
 
-func (r *MigrateFromWeaviateCmd) migrateData(ctx context.Context, sourceClient *weaviate.Client, targetClient *qdrant.Client, sourcePointCount uint64) error {
+func (r *MigrateFromWeaviateCmd) migrateData(ctx context.Context, sourceClient *weaviate.Client, targetClient commons.QdrantClient, sourcePointCount uint64) error {
 	var offsetCount uint64
 	var offsetID *qdrant.PointId
 

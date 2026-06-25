@@ -19,6 +19,7 @@ import (
 	"github.com/qdrant/migration/pkg/commons"
 )
 
+
 const (
 	// SAMPLE_SIZE_PER_WORKER is the number of points to sample per worker to determine ranges for parallel migration.
 	SAMPLE_SIZE_PER_WORKER = 10
@@ -82,13 +83,13 @@ func (r *MigrateFromQdrantCmd) Run(globals *Globals) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	sourceClient, err := connectToQdrant(globals, r.sourceHost, r.sourcePort, r.Source.APIKey, r.sourceTLS, r.MaxMessageSize)
+	sourceClient, err := connectToQdrant(globals, r.sourceHost, r.sourcePort, r.Source.APIKey, r.sourceTLS, r.MaxMessageSize, r.Source.UseREST)
 	if err != nil {
 		return fmt.Errorf("failed to connect to source: %w", err)
 	}
 	defer sourceClient.Close()
 
-	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Target.APIKey, r.targetTLS, 0)
+	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Target.APIKey, r.targetTLS, 0, r.Target.UseREST)
 	if err != nil {
 		return fmt.Errorf("failed to connect to target: %w", err)
 	}
@@ -136,7 +137,7 @@ func (r *MigrateFromQdrantCmd) Run(globals *Globals) error {
 
 // prepareTargetCollection ensures the target collection exists and is configured correctly.
 // It can create the collection based on the source's schema and create payload indexes.
-func (r *MigrateFromQdrantCmd) prepareTargetCollection(ctx context.Context, sourceClient *qdrant.Client, sourceCollection string, targetClient *qdrant.Client, targetCollection string) error {
+func (r *MigrateFromQdrantCmd) prepareTargetCollection(ctx context.Context, sourceClient commons.QdrantClient, sourceCollection string, targetClient commons.QdrantClient, targetCollection string) error {
 	sourceCollectionInfo, err := sourceClient.GetCollectionInfo(ctx, sourceCollection)
 	if err != nil {
 		return fmt.Errorf("failed to get source collection info: %w", err)
@@ -290,7 +291,7 @@ func convertVectors(p *qdrant.RetrievedPoint) *qdrant.Vectors {
 
 // samplePointIDs fetches a random sample of point IDs from the source collection.
 // These IDs are used as boundaries to divide the migration work among parallel workers.
-func (r *MigrateFromQdrantCmd) samplePointIDs(ctx context.Context, client *qdrant.Client, collection string, pointCount uint64) ([]*qdrant.PointId, error) {
+func (r *MigrateFromQdrantCmd) samplePointIDs(ctx context.Context, client commons.QdrantClient, collection string, pointCount uint64) ([]*qdrant.PointId, error) {
 	// TODO(Anush008): Check if there's a more optimal value for SAMPLE_SIZE_PER_WORKER.
 	sampleSize := r.NumWorkers * SAMPLE_SIZE_PER_WORKER
 	// Don't sample more points than are available in the collection.
@@ -322,7 +323,7 @@ func (r *MigrateFromQdrantCmd) samplePointIDs(ctx context.Context, client *qdran
 
 // processBatch handles the upserting of a batch of points to the target collection.
 // It deals with sharding by creating shard keys if they don't exist and retries on transient errors.
-func (r *MigrateFromQdrantCmd) processBatch(ctx context.Context, points []*qdrant.RetrievedPoint, targetClient *qdrant.Client, targetCollection string, shardKeys *sync.Map, wait bool) error {
+func (r *MigrateFromQdrantCmd) processBatch(ctx context.Context, points []*qdrant.RetrievedPoint, targetClient commons.QdrantClient, targetCollection string, shardKeys *sync.Map, wait bool) error {
 	// Group points by their shard key.
 	byShardKey := make(map[string][]*qdrant.PointStruct)
 	shardKeyObjs := make(map[string]*qdrant.ShardKey)
@@ -372,7 +373,7 @@ func (r *MigrateFromQdrantCmd) processBatch(ctx context.Context, points []*qdran
 }
 
 // migrateData chooses between sequential and parallel migration based on the number of workers.
-func (r *MigrateFromQdrantCmd) migrateData(ctx context.Context, sourceClient *qdrant.Client, sourceCollection string, targetClient *qdrant.Client, targetCollection string, sourcePointCount uint64) error {
+func (r *MigrateFromQdrantCmd) migrateData(ctx context.Context, sourceClient commons.QdrantClient, sourceCollection string, targetClient commons.QdrantClient, targetCollection string, sourcePointCount uint64) error {
 	if r.NumWorkers > 1 {
 		return r.migrateDataParallel(ctx, sourceClient, sourceCollection, targetClient, targetCollection, sourcePointCount)
 	}
@@ -380,7 +381,7 @@ func (r *MigrateFromQdrantCmd) migrateData(ctx context.Context, sourceClient *qd
 }
 
 // migrateDataSequential performs the migration using a single worker.
-func (r *MigrateFromQdrantCmd) migrateDataSequential(ctx context.Context, sourceClient *qdrant.Client, sourceCollection string, targetClient *qdrant.Client, targetCollection string, sourcePointCount uint64) error {
+func (r *MigrateFromQdrantCmd) migrateDataSequential(ctx context.Context, sourceClient commons.QdrantClient, sourceCollection string, targetClient commons.QdrantClient, targetCollection string, sourcePointCount uint64) error {
 	var offset *qdrant.PointId
 	var count uint64
 
@@ -399,7 +400,7 @@ func (r *MigrateFromQdrantCmd) migrateDataSequential(ctx context.Context, source
 
 	for {
 		// Scroll through points from the source collection in batches.
-		resp, err := sourceClient.GetPointsClient().Scroll(ctx, &qdrant.ScrollPoints{
+		points, nextOffset, err := sourceClient.ScrollWithOffset(ctx, &qdrant.ScrollPoints{
 			CollectionName: sourceCollection,
 			Offset:         offset,
 			Limit:          qdrant.PtrOf(uint32(r.Migration.BatchSize)),
@@ -410,14 +411,13 @@ func (r *MigrateFromQdrantCmd) migrateDataSequential(ctx context.Context, source
 			return fmt.Errorf("failed to scroll data from source: %w", err)
 		}
 
-		points := resp.GetResult()
 		if err := r.processBatch(ctx, points, targetClient, targetCollection, shardKeys, true); err != nil {
 			return err
 		}
 
 		count += uint64(len(points))
 		bar.Add(len(points))
-		offset = resp.GetNextPageOffset()
+		offset = nextOffset
 
 		if err := commons.StoreStartOffset(ctx, r.Migration.OffsetsCollection, targetClient, sourceCollection, offset, count); err != nil {
 			return fmt.Errorf("failed to store offset: %w", err)
@@ -437,7 +437,7 @@ func (r *MigrateFromQdrantCmd) migrateDataSequential(ctx context.Context, source
 }
 
 // migrateDataParallel performs the migration using multiple workers in parallel.
-func (r *MigrateFromQdrantCmd) migrateDataParallel(ctx context.Context, sourceClient *qdrant.Client, sourceCollection string, targetClient *qdrant.Client, targetCollection string, sourcePointCount uint64) error {
+func (r *MigrateFromQdrantCmd) migrateDataParallel(ctx context.Context, sourceClient commons.QdrantClient, sourceCollection string, targetClient commons.QdrantClient, targetCollection string, sourcePointCount uint64) error {
 	pterm.Info.Printfln("Using parallel migration with %d workers", r.NumWorkers)
 
 	// Sample points to define ranges for parallel workers.
@@ -507,13 +507,13 @@ func (r *MigrateFromQdrantCmd) migrateDataParallel(ctx context.Context, sourceCl
 
 // migrateRange is the function executed by each worker in parallel migration.
 // It scrolls through a specific range of points and upserts them to the target.
-func (r *MigrateFromQdrantCmd) migrateRange(ctx context.Context, sourceCollection, targetCollection string, sourceClient, targetClient *qdrant.Client, rg rangeSpec, shardKeys *sync.Map, bar *pterm.ProgressbarPrinter) error {
+func (r *MigrateFromQdrantCmd) migrateRange(ctx context.Context, sourceCollection, targetCollection string, sourceClient, targetClient commons.QdrantClient, rg rangeSpec, shardKeys *sync.Map, bar *pterm.ProgressbarPrinter) error {
 	offsetKey := fmt.Sprintf("%s-workers-%d-range-%d", sourceCollection, r.NumWorkers, rg.id)
 	offset := rg.start
 	var count uint64
 
 	for { // Loop to scroll through the assigned range.
-		resp, err := sourceClient.GetPointsClient().Scroll(ctx, &qdrant.ScrollPoints{
+		points, nextPageOffset, err := sourceClient.ScrollWithOffset(ctx, &qdrant.ScrollPoints{
 			CollectionName: sourceCollection,
 			Offset:         offset,
 			Limit:          qdrant.PtrOf(uint32(r.Migration.BatchSize)),
@@ -523,8 +523,6 @@ func (r *MigrateFromQdrantCmd) migrateRange(ctx context.Context, sourceCollectio
 		if err != nil {
 			return err
 		}
-
-		points := resp.GetResult()
 		if len(points) == 0 {
 			break
 		}
@@ -554,7 +552,7 @@ func (r *MigrateFromQdrantCmd) migrateRange(ctx context.Context, sourceCollectio
 			return fmt.Errorf("failed to store offset: %w", err)
 		}
 
-		offset = resp.GetNextPageOffset()
+		offset = nextPageOffset
 		// Stop if we've reached the end of the collection or the end of the assigned range.
 		if offset == nil || (rg.end != nil && !comparePointIDs(points[len(points)-1].Id, rg.end)) {
 			break

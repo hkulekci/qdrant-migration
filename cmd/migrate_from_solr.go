@@ -58,7 +58,7 @@ func (r *MigrateFromSolrCmd) Run(globals *Globals) error {
 
 	httpClient := r.createHTTPClient()
 
-	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0)
+	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0, r.Qdrant.UseREST)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Qdrant target: %w", err)
 	}
@@ -156,7 +156,7 @@ func (r *MigrateFromSolrCmd) countSolrDocuments(ctx context.Context, client *htt
 	return int64(numFound), nil
 }
 
-func (r *MigrateFromSolrCmd) migrateData(ctx context.Context, httpClient *http.Client, targetClient *qdrant.Client, sourcePointCount int64) error {
+func (r *MigrateFromSolrCmd) migrateData(ctx context.Context, httpClient *http.Client, targetClient commons.QdrantClient, sourcePointCount int64) error {
 	batchSize := r.Migration.BatchSize
 
 	offsetCount := uint64(0)

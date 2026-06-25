@@ -67,7 +67,7 @@ func (r *MigrateFromRedisCmd) Run(globals *Globals) error {
 	})
 	defer rdb.Close()
 
-	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0)
+	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0, r.Qdrant.UseREST)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Qdrant target: %w", err)
 	}
@@ -126,7 +126,7 @@ func (r *MigrateFromRedisCmd) countRedisDocuments(ctx context.Context, rdb *redi
 	return uint64(info.NumDocs), nil
 }
 
-func (r *MigrateFromRedisCmd) migrateData(ctx context.Context, rdb *redis.Client, targetClient *qdrant.Client, sourcePointCount uint64) error {
+func (r *MigrateFromRedisCmd) migrateData(ctx context.Context, rdb *redis.Client, targetClient commons.QdrantClient, sourcePointCount uint64) error {
 	batchSize := r.Migration.BatchSize
 
 	var currentOffset uint64 = 0

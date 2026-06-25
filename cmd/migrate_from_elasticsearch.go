@@ -63,7 +63,7 @@ func (r *MigrateFromElasticsearchCmd) Run(globals *Globals) error {
 		return fmt.Errorf("failed to connect to Elasticsearch source: %w", err)
 	}
 
-	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0)
+	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0, r.Qdrant.UseREST)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Qdrant target: %w", err)
 	}
@@ -157,7 +157,7 @@ func (r *MigrateFromElasticsearchCmd) countElasticsearchDocuments(ctx context.Co
 	return int64(count), nil
 }
 
-func (r *MigrateFromElasticsearchCmd) prepareTargetCollection(ctx context.Context, sourceClient *elasticsearch.Client, targetClient *qdrant.Client) error {
+func (r *MigrateFromElasticsearchCmd) prepareTargetCollection(ctx context.Context, sourceClient *elasticsearch.Client, targetClient commons.QdrantClient) error {
 	mappingRes, err := esapi.IndicesGetMappingRequest{
 		Index: []string{r.Elasticsearch.Index},
 	}.Do(ctx, sourceClient)
@@ -273,7 +273,7 @@ func (r *MigrateFromElasticsearchCmd) extractVectorFields(mapping map[string]any
 	return vectorParamsMap, nil
 }
 
-func (r *MigrateFromElasticsearchCmd) migrateData(ctx context.Context, sourceClient *elasticsearch.Client, targetClient *qdrant.Client, sourcePointCount int64) error {
+func (r *MigrateFromElasticsearchCmd) migrateData(ctx context.Context, sourceClient *elasticsearch.Client, targetClient commons.QdrantClient, sourcePointCount int64) error {
 	batchSize := r.Migration.BatchSize
 
 	offsetCount := uint64(0)

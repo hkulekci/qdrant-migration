@@ -61,7 +61,7 @@ func (r *MigrateFromOpenSearchCmd) Run(globals *Globals) error {
 		return fmt.Errorf("failed to connect to OpenSearch source: %w", err)
 	}
 
-	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0)
+	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0, r.Qdrant.UseREST)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Qdrant target: %w", err)
 	}
@@ -154,7 +154,7 @@ func (r *MigrateFromOpenSearchCmd) countOpenSearchDocuments(ctx context.Context,
 	return int64(count), nil
 }
 
-func (r *MigrateFromOpenSearchCmd) prepareTargetCollection(ctx context.Context, sourceClient *opensearch.Client, targetClient *qdrant.Client) error {
+func (r *MigrateFromOpenSearchCmd) prepareTargetCollection(ctx context.Context, sourceClient *opensearch.Client, targetClient commons.QdrantClient) error {
 	if !r.Migration.CreateCollection {
 		return nil
 	}
@@ -266,7 +266,7 @@ func (r *MigrateFromOpenSearchCmd) extractVectorFields(mapping map[string]any) (
 	return vectorParamsMap, nil
 }
 
-func (r *MigrateFromOpenSearchCmd) migrateData(ctx context.Context, sourceClient *opensearch.Client, targetClient *qdrant.Client, sourcePointCount int64) error {
+func (r *MigrateFromOpenSearchCmd) migrateData(ctx context.Context, sourceClient *opensearch.Client, targetClient commons.QdrantClient, sourcePointCount int64) error {
 	batchSize := r.Migration.BatchSize
 
 	offsetCount := uint64(0)

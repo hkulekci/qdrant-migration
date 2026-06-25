@@ -10,7 +10,7 @@ import (
 	"github.com/qdrant/go-client/qdrant"
 )
 
-func PrepareOffsetsCollection(ctx context.Context, migrationOffsetsCollectionName string, targetClient *qdrant.Client) error {
+func PrepareOffsetsCollection(ctx context.Context, migrationOffsetsCollectionName string, targetClient QdrantClient) error {
 	migrationOffsetCollectionExists, err := targetClient.CollectionExists(ctx, migrationOffsetsCollectionName)
 	if err != nil {
 		return fmt.Errorf("failed to check if collection exists: %w", err)
@@ -24,7 +24,7 @@ func PrepareOffsetsCollection(ctx context.Context, migrationOffsetsCollectionNam
 	})
 }
 
-func DeleteOffsetsCollection(ctx context.Context, migrationOffsetsCollectionName string, targetClient *qdrant.Client) error {
+func DeleteOffsetsCollection(ctx context.Context, migrationOffsetsCollectionName string, targetClient QdrantClient) error {
 	migrationOffsetCollectionExists, err := targetClient.CollectionExists(ctx, migrationOffsetsCollectionName)
 	if err != nil {
 		return fmt.Errorf("failed to check if collection exists: %w", err)
@@ -36,7 +36,7 @@ func DeleteOffsetsCollection(ctx context.Context, migrationOffsetsCollectionName
 	return targetClient.DeleteCollection(ctx, migrationOffsetsCollectionName)
 }
 
-func GetStartOffset(ctx context.Context, migrationOffsetsCollectionName string, targetClient *qdrant.Client, sourceCollection string) (*qdrant.PointId, uint64, error) {
+func GetStartOffset(ctx context.Context, migrationOffsetsCollectionName string, targetClient QdrantClient, sourceCollection string) (*qdrant.PointId, uint64, error) {
 	point, err := getOffsetPoint(ctx, migrationOffsetsCollectionName, targetClient, sourceCollection)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get start offset point: %w", err)
@@ -82,7 +82,7 @@ func getOffsetIdAsValue(offset *qdrant.PointId) (interface{}, error) {
 	}
 }
 
-func StoreStartOffset(ctx context.Context, migrationOffsetsCollectionName string, targetClient *qdrant.Client, sourceCollection string, offset *qdrant.PointId, offsetCount uint64) error {
+func StoreStartOffset(ctx context.Context, migrationOffsetsCollectionName string, targetClient QdrantClient, sourceCollection string, offset *qdrant.PointId, offsetCount uint64) error {
 	if offset == nil {
 		return nil
 	}
@@ -114,7 +114,7 @@ func StoreStartOffset(ctx context.Context, migrationOffsetsCollectionName string
 	return nil
 }
 
-func getOffsetPoint(ctx context.Context, migrationOffsetsCollectionName string, targetClient *qdrant.Client, sourceCollection string) (*qdrant.RetrievedPoint, error) {
+func getOffsetPoint(ctx context.Context, migrationOffsetsCollectionName string, targetClient QdrantClient, sourceCollection string) (*qdrant.RetrievedPoint, error) {
 	points, err := targetClient.Get(ctx, &qdrant.GetPoints{
 		CollectionName: migrationOffsetsCollectionName,
 		Ids:            []*qdrant.PointId{getOffsetPointId(sourceCollection)},

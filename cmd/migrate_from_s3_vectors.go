@@ -60,7 +60,7 @@ func (r *MigrateFromS3VectorsCmd) Run(globals *Globals) error {
 		return fmt.Errorf("failed to connect to S3 Vectors source: %w", err)
 	}
 
-	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0)
+	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0, r.Qdrant.UseREST)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Qdrant target: %w", err)
 	}
@@ -111,7 +111,7 @@ func (r *MigrateFromS3VectorsCmd) connectToS3Vectors() (*s3vectors.Client, error
 	return s3vectors.NewFromConfig(sdkConfig), nil
 }
 
-func (r *MigrateFromS3VectorsCmd) prepareTargetCollection(ctx context.Context, sourceClient *s3vectors.Client, targetClient *qdrant.Client) error {
+func (r *MigrateFromS3VectorsCmd) prepareTargetCollection(ctx context.Context, sourceClient *s3vectors.Client, targetClient commons.QdrantClient) error {
 	if !r.Migration.CreateCollection {
 		return nil
 	}
@@ -160,7 +160,7 @@ func (r *MigrateFromS3VectorsCmd) prepareTargetCollection(ctx context.Context, s
 	return nil
 }
 
-func (r *MigrateFromS3VectorsCmd) migrateData(ctx context.Context, sourceClient *s3vectors.Client, targetClient *qdrant.Client) error {
+func (r *MigrateFromS3VectorsCmd) migrateData(ctx context.Context, sourceClient *s3vectors.Client, targetClient commons.QdrantClient) error {
 	batchSize := r.Migration.BatchSize
 
 	var offsetId *qdrant.PointId

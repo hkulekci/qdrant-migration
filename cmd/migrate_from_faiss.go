@@ -56,7 +56,7 @@ func (r *MigrateFromFaissCmd) Run(globals *Globals) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0)
+	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0, r.Qdrant.UseREST)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Qdrant target: %w", err)
 	}
@@ -164,7 +164,7 @@ func (r *MigrateFromFaissCmd) getFaissTotal(ctx context.Context) (int, error) {
 	return total, nil
 }
 
-func (r *MigrateFromFaissCmd) prepareTargetCollection(ctx context.Context, dim int, targetClient *qdrant.Client) error {
+func (r *MigrateFromFaissCmd) prepareTargetCollection(ctx context.Context, dim int, targetClient commons.QdrantClient) error {
 	if !r.Migration.CreateCollection {
 		return nil
 	}
@@ -196,7 +196,7 @@ func (r *MigrateFromFaissCmd) prepareTargetCollection(ctx context.Context, dim i
 	return nil
 }
 
-func (r *MigrateFromFaissCmd) migrateData(ctx context.Context, targetClient *qdrant.Client, total int) error {
+func (r *MigrateFromFaissCmd) migrateData(ctx context.Context, targetClient commons.QdrantClient, total int) error {
 	var currentOffset uint64 = 0
 	if !r.Migration.Restart {
 		_, offsetStored, err := commons.GetStartOffset(ctx, r.Migration.OffsetsCollection, targetClient, r.FaissIndex.IndexPath)

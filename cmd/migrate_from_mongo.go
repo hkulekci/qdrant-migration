@@ -67,7 +67,7 @@ func (r *MigrateFromMongoDBCmd) Run(globals *Globals) error {
 		}
 	}()
 
-	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0)
+	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0, r.Qdrant.UseREST)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Qdrant target: %w", err)
 	}
@@ -131,7 +131,7 @@ func (r *MigrateFromMongoDBCmd) countMongoDBDocuments(ctx context.Context, clien
 	return count, nil
 }
 
-func (r *MigrateFromMongoDBCmd) migrateData(ctx context.Context, sourceClient *mongo.Client, targetClient *qdrant.Client, sourcePointCount int64) error {
+func (r *MigrateFromMongoDBCmd) migrateData(ctx context.Context, sourceClient *mongo.Client, targetClient commons.QdrantClient, sourcePointCount int64) error {
 	batchSize := uint64(r.Migration.BatchSize)
 	collection := sourceClient.Database(r.MongoDB.Database).Collection(r.MongoDB.Collection)
 

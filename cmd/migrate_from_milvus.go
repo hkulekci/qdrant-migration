@@ -61,7 +61,7 @@ func (r *MigrateFromMilvusCmd) Run(globals *Globals) error {
 		return fmt.Errorf("failed to connect to Milvus source: %w", err)
 	}
 
-	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0)
+	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0, r.Qdrant.UseREST)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Qdrant target: %w", err)
 	}
@@ -138,7 +138,7 @@ func (r *MigrateFromMilvusCmd) countMilvusVectors(ctx context.Context, client *m
 	return count, nil
 }
 
-func (r *MigrateFromMilvusCmd) prepareTargetCollection(ctx context.Context, sourceClient *milvusclient.Client, targetClient *qdrant.Client) error {
+func (r *MigrateFromMilvusCmd) prepareTargetCollection(ctx context.Context, sourceClient *milvusclient.Client, targetClient commons.QdrantClient) error {
 	if !r.Migration.CreateCollection {
 		return nil
 	}
@@ -201,7 +201,7 @@ func (r *MigrateFromMilvusCmd) prepareTargetCollection(ctx context.Context, sour
 	return nil
 }
 
-func (r *MigrateFromMilvusCmd) migrateData(ctx context.Context, sourceClient *milvusclient.Client, targetClient *qdrant.Client, sourcePointCount uint64) error {
+func (r *MigrateFromMilvusCmd) migrateData(ctx context.Context, sourceClient *milvusclient.Client, targetClient commons.QdrantClient, sourcePointCount uint64) error {
 	batchSize := r.Migration.BatchSize
 
 	var offsetID *qdrant.PointId

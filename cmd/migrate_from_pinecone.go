@@ -58,7 +58,7 @@ func (r *MigrateFromPineconeCmd) Run(globals *Globals) error {
 		return fmt.Errorf("failed to connect to Pinecone source: %w", err)
 	}
 
-	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0)
+	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0, r.Qdrant.UseREST)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Qdrant target: %w", err)
 	}
@@ -133,7 +133,7 @@ func (r *MigrateFromPineconeCmd) countPineconeVectors(ctx context.Context, index
 	return uint64(stats.TotalVectorCount), nil
 }
 
-func (r *MigrateFromPineconeCmd) prepareTargetCollection(ctx context.Context, sourceClient *pinecone.Client, targetClient *qdrant.Client) error {
+func (r *MigrateFromPineconeCmd) prepareTargetCollection(ctx context.Context, sourceClient *pinecone.Client, targetClient commons.QdrantClient) error {
 	if !r.Migration.CreateCollection {
 		return nil
 	}
@@ -201,7 +201,7 @@ func (r *MigrateFromPineconeCmd) prepareTargetCollection(ctx context.Context, so
 	return nil
 }
 
-func (r *MigrateFromPineconeCmd) migrateData(ctx context.Context, sourceIndexConn *pinecone.IndexConnection, targetClient *qdrant.Client, sourcePointCount uint64) error {
+func (r *MigrateFromPineconeCmd) migrateData(ctx context.Context, sourceIndexConn *pinecone.IndexConnection, targetClient commons.QdrantClient, sourcePointCount uint64) error {
 	batchSize := r.Migration.BatchSize
 
 	var offsetId *qdrant.PointId

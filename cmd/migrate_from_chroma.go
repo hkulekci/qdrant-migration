@@ -63,7 +63,7 @@ func (r *MigrateFromChromaCmd) Run(globals *Globals) error {
 	defer sourceCollection.Close()
 	defer sourceClient.Close()
 
-	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0)
+	targetClient, err := connectToQdrant(globals, r.targetHost, r.targetPort, r.Qdrant.APIKey, r.targetTLS, 0, r.Qdrant.UseREST)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Qdrant target: %w", err)
 	}
@@ -158,7 +158,7 @@ func (r *MigrateFromChromaCmd) countChromaVectors(ctx context.Context, collectio
 	return uint64(count), nil
 }
 
-func (r *MigrateFromChromaCmd) prepareTargetCollection(ctx context.Context, collection chroma.Collection, targetClient *qdrant.Client) error {
+func (r *MigrateFromChromaCmd) prepareTargetCollection(ctx context.Context, collection chroma.Collection, targetClient commons.QdrantClient) error {
 	if !r.Migration.CreateCollection {
 		return nil
 	}
@@ -196,7 +196,7 @@ func (r *MigrateFromChromaCmd) prepareTargetCollection(ctx context.Context, coll
 	return nil
 }
 
-func (r *MigrateFromChromaCmd) migrateData(ctx context.Context, collection chroma.Collection, targetClient *qdrant.Client, sourcePointCount uint64) error {
+func (r *MigrateFromChromaCmd) migrateData(ctx context.Context, collection chroma.Collection, targetClient commons.QdrantClient, sourcePointCount uint64) error {
 	batchSize := r.Migration.BatchSize
 
 	var currentOffset uint64 = 0
