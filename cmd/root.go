@@ -30,6 +30,8 @@ type CLI struct {
 	S3Vectors     MigrateFromS3VectorsCmd     `cmd:"" name:"s3" help:"Migrate data from S3 Vectors to Qdrant."`
 	Faiss         MigrateFromFaissCmd         `cmd:"" help:"Migrate data from a FAISS index to Qdrant."`
 	Solr          MigrateFromSolrCmd          `cmd:"" help:"Migrate data from an Apache Solr collection to Qdrant."`
+	Parquet       MigrateFromParquetCmd       `cmd:"" name:"parquet" help:"Migrate data from a Parquet file to Qdrant."`
+	ToParquet     MigrateToParquetCmd         `cmd:"" name:"to-parquet" help:"Export data from a Qdrant collection to a Parquet file."`
 }
 
 func Execute(projectVersion, projectBuild string) {

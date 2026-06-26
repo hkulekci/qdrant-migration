@@ -113,6 +113,10 @@ type FaissConfig struct {
 	IndexPath string `help:"Path to the FAISS index file" required:"true"`
 }
 
+type ParquetConfig struct {
+	Path string `help:"Path to the Parquet file" required:"true"`
+}
+
 type SolrConfig struct {
 	Url                string `help:"Solr URL (e.g., http://localhost:8983)" required:""`
 	Collection         string `help:"Solr collection name" required:""`
