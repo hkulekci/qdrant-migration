@@ -17,6 +17,9 @@ CLI tool for migrating data to [Qdrant](http://qdrant.tech) with support for res
 * FAISS
 * Apache Solr
 * Another Qdrant instance
+* Parquet file
+
+You can also **export** a Qdrant collection to a Parquet file and import it back later. See [To a Parquet File](#to-a-parquet-file) and [From a Parquet File](#from-a-parquet-file).
 
 ## Installation
 
@@ -623,6 +626,77 @@ NOTE: If the target collection already exists, its vector size and dimensions mu
 | Flag                              | Description                                                    |
 | --------------------------------- | -------------------------------------------------------------- |
 | `--migration.num-workers`         | Number of parallel workers to use. Default: Number of CPU cores|
+
+See [Shared Migration Options](#shared-migration-options) for shared parameters.
+
+</details>
+
+<details>
+<summary><h3>To a Parquet File</h3></summary>
+
+Export a **Qdrant** collection to a **Parquet** file. The file stores point IDs, vectors (dense, named, sparse and multi) and payload, while the collection's vector configuration and payload index schema are kept as Parquet footer metadata so the collection can be recreated faithfully on import.
+
+### 📤 Example
+
+```bash
+docker run --net=host --rm -it -v "$(pwd):/data" registry.cloud.qdrant.io/library/qdrant-migration to-parquet \
+    --qdrant.url 'https://example.cloud-region.cloud-provider.cloud.qdrant.io:6334' \
+    --qdrant.api-key 'qdrant-key' \
+    --qdrant.collection 'source-collection' \
+    --parquet.path '/data/source-collection.parquet'
+```
+
+NOTE: The Parquet file is written to `--parquet.path`. When running in a container, mount a volume (e.g. `-v "$(pwd):/data"`) and point the path inside it so the file is available on the host.
+
+#### Qdrant Options
+
+| Flag                         | Description                                                                                          |
+| ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| `--qdrant.collection`        | Source collection name                                                                              |
+| `--qdrant.url`               | Source gRPC URL. Default: `"http://localhost:6334"`                                                 |
+| `--qdrant.api-key`           | API key for the Qdrant instance                                                                     |
+| `--qdrant.max-message-size`  | Maximum gRPC message size in bytes (default: `33554432` = 32MB). Increase if you encounter `ResourceExhausted` errors with large batches. |
+
+#### Parquet Options
+
+| Flag             | Description                       |
+| ---------------- | --------------------------------- |
+| `--parquet.path` | Path to the output Parquet file   |
+
+See [Shared Migration Options](#shared-migration-options) for shared parameters.
+
+</details>
+
+<details>
+<summary><h3>From a Parquet File</h3></summary>
+
+Migrate data from a **Parquet** file (produced by [To a Parquet File](#to-a-parquet-file)) into **Qdrant**.
+
+### 📥 Example
+
+```bash
+docker run --net=host --rm -it -v "$(pwd):/data" registry.cloud.qdrant.io/library/qdrant-migration parquet \
+    --parquet.path '/data/source-collection.parquet' \
+    --qdrant.url 'https://example.cloud-region.cloud-provider.cloud.qdrant.io:6334' \
+    --qdrant.api-key 'qdrant-key' \
+    --qdrant.collection 'target-collection'
+```
+
+NOTE: When `--migration.create-collection` is `true` (the default) and the target collection does not exist, it is recreated from the schema stored in the Parquet file (vector configuration, sparse vectors and payload indexes). Set it to `false` to import into an existing collection instead.
+
+#### Parquet Options
+
+| Flag             | Description                          |
+| ---------------- | ------------------------------------ |
+| `--parquet.path` | Path to the Parquet file to import   |
+
+#### Qdrant Options
+
+| Flag                  | Description                                         |
+| --------------------- | --------------------------------------------------- |
+| `--qdrant.collection` | Target collection name                              |
+| `--qdrant.url`        | Target gRPC URL. Default: `"http://localhost:6334"` |
+| `--qdrant.api-key`    | API key for the Qdrant instance                     |
 
 See [Shared Migration Options](#shared-migration-options) for shared parameters.
 
